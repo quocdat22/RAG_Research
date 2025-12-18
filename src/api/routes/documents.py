@@ -12,6 +12,7 @@ from src.api.schemas import (
     DocumentDeleteResponse,
     DocumentInfo,
     DocumentListResponse,
+    DocumentSearchRequest,
     DocumentUploadResponse,
 )
 from src.embedding.embedder import get_embedder
@@ -55,6 +56,29 @@ async def upload_document(file: UploadFile = File(...)):
         
         # Load document (returns pages and is_markdown flag)
         pages, is_markdown = DocumentLoader.load(file_path)
+        
+        # Extract metadata from first few pages
+        from src.ingestion.metadata_extractor import get_metadata_extractor
+        
+        metadata_extractor = get_metadata_extractor()
+        # Combine first 3 pages for metadata extraction
+        first_pages_text = "\n\n".join([
+            page.content for page in pages[:3]
+        ])
+        rich_metadata = metadata_extractor.extract(first_pages_text, file.filename)
+        
+        # Update document metadata with extracted rich metadata
+        for page in pages:
+            if page.metadata:
+                page.metadata.authors = rich_metadata.get("authors")
+                page.metadata.year = rich_metadata.get("year")
+                page.metadata.keywords = rich_metadata.get("keywords")
+                page.metadata.abstract = rich_metadata.get("abstract")
+                page.metadata.doi = rich_metadata.get("doi")
+                page.metadata.arxiv_id = rich_metadata.get("arxiv_id")
+                page.metadata.venue = rich_metadata.get("venue")
+        
+        logger.info(f"Extracted metadata: {list(rich_metadata.keys())}")
         
         # Chunk document based on content type
         if is_markdown:
@@ -110,15 +134,8 @@ async def list_documents():
         vector_store = get_vector_store()
         documents = vector_store.get_all_documents()
         
-        doc_infos = [
-            DocumentInfo(
-                document_id=doc["document_id"],
-                filename=doc["filename"],
-                file_type=doc["file_type"],
-                upload_timestamp=doc["upload_timestamp"]
-            )
-            for doc in documents
-        ]
+        # Documents already include rich metadata from get_all_documents()
+        doc_infos = [DocumentInfo(**doc) for doc in documents]
         
         return DocumentListResponse(
             documents=doc_infos,
@@ -195,3 +212,116 @@ async def get_document_chunks(document_id: str):
     except Exception as e:
         logger.error(f"Error retrieving document chunks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{document_id}/metadata", response_model=DocumentInfo)
+async def get_document_metadata(document_id: str):
+    """
+    Get metadata for a specific document.
+    
+    Args:
+        document_id: Document ID
+        
+    Returns:
+        Document metadata
+    """
+    try:
+        vector_store = get_vector_store()
+        metadata = vector_store.get_document_metadata(document_id)
+        
+        if not metadata:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        return DocumentInfo(**metadata)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving document metadata: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/{document_id}/metadata")
+async def update_document_metadata(
+    document_id: str,
+    metadata_update: "DocumentMetadataUpdate"  # type: ignore
+):
+    """
+    Update metadata for a document.
+    
+    Args:
+        document_id: Document ID
+        metadata_update: Metadata fields to update
+        
+    Returns:
+        Success response with number of chunks updated
+    """
+    try:
+        from src.api.schemas import DocumentMetadataUpdate
+        
+        vector_store = get_vector_store()
+        
+        # Convert pydantic model to dict, excluding None values
+        update_dict = metadata_update.model_dump(exclude_none=True)
+        
+        chunks_updated = vector_store.update_document_metadata(document_id, update_dict)
+        
+        if chunks_updated == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        logger.info(f"Updated metadata for document {document_id}: {chunks_updated} chunks")
+        
+        return {
+            "status": "success",
+            "document_id": document_id,
+            "chunks_updated": chunks_updated,
+            "updated_fields": list(update_dict.keys())
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating document metadata: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/search")
+async def search_documents(request: DocumentSearchRequest):
+    """
+    Search documents with metadata filters.
+    
+    Args:
+        request: Search request with query and filters
+        
+    Returns:
+        Matching documents
+    """
+    try:
+        from src.api.schemas import DocumentSearchResponse
+        
+        vector_store = get_vector_store()
+        
+        # Perform search
+        results = vector_store.search_documents(
+            query=request.query,
+            authors=request.authors,
+            year_min=request.year_min,
+            year_max=request.year_max,
+            keywords=request.keywords
+        )
+        
+        # Convert to DocumentInfo objects
+        doc_infos = [DocumentInfo(**doc) for doc in results]
+        
+        logger.info(f"Document search returned {len(doc_infos)} results")
+        
+        return DocumentSearchResponse(
+            documents=doc_infos,
+            total=len(doc_infos),
+            query=request.query
+        )
+        
+    except Exception as e:
+        logger.error(f"Error searching documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

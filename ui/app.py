@@ -2,6 +2,9 @@
 import requests
 import streamlit as st
 import re
+import fitz  # PyMuPDF
+import io
+from PIL import Image
 from datetime import datetime
 
 # API Configuration
@@ -248,6 +251,26 @@ def load_conversation_messages(conversation_id: str):
         st.session_state.messages = []
 
 
+def get_pdf_preview(file_bytes, max_pages=5):
+    """Generate preview images for the first few pages of a PDF."""
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        images = []
+        num_pages = min(len(doc), max_pages)
+        
+        for i in range(num_pages):
+            page = doc.load_page(i)
+            pix = page.get_pixmap(matrix=fitz.Matrix(1, 1)) # Standard resolution
+            img_data = pix.tobytes("png")
+            images.append(Image.open(io.BytesIO(img_data)))
+            
+        doc.close()
+        return images
+    except Exception as e:
+        st.error(f"Error generating PDF preview: {e}")
+        return []
+
+
 def render_sidebar():
     """Render sidebar with document management and conversations."""
     with st.sidebar:
@@ -328,6 +351,39 @@ def render_sidebar():
         )
         
         if uploaded_file is not None:
+            # Document Preview
+            if uploaded_file.type == "application/pdf":
+                st.markdown("#### Preview (First 5 pages)")
+                preview_images = get_pdf_preview(uploaded_file.getvalue())
+                
+                if preview_images:
+                    # Create a horizontal scroll or a grid for preview
+                    # Streamlit doesn't have a great horizontal scroll, so we'll use a container with a fixed height if possible, 
+                    # or just a few columns/images
+                    cols = st.columns(3)
+                    for i, img in enumerate(preview_images[:3]):
+                        with cols[i]:
+                            st.image(img, use_container_width=True, caption=f"Page {i+1}")
+                    
+                    if len(preview_images) > 3:
+                        with st.expander("Show more pages"):
+                            cols_more = st.columns(2)
+                            for i, img in enumerate(preview_images[3:]):
+                                with cols_more[i % 2]:
+                                    st.image(img, use_container_width=True, caption=f"Page {i+4}")
+                else:
+                    st.info("No preview available for this PDF")
+            elif uploaded_file.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
+                st.markdown("#### Content Snippet")
+                try:
+                    if uploaded_file.type == "text/plain":
+                        snippet = uploaded_file.getvalue().decode("utf-8")[:500]
+                        st.text_area("Snippet", snippet, height=150, disabled=True)
+                    else:
+                        st.info("Preview not available for DOCX yet, but you can still upload.")
+                except Exception:
+                    st.info("Could not read snippet.")
+
             if st.button("📤 Upload", use_container_width=True):
                 with st.spinner("Processing document..."):
                     result = upload_document(uploaded_file)

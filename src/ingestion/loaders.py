@@ -19,13 +19,30 @@ class DocumentMetadata:
         file_path: str,
         file_type: str,
         upload_timestamp: Optional[datetime] = None,
-        page_count: Optional[int] = None
+        page_count: Optional[int] = None,
+        # Rich metadata fields
+        authors: Optional[str] = None,
+        year: Optional[str] = None,
+        keywords: Optional[str] = None,
+        abstract: Optional[str] = None,
+        doi: Optional[str] = None,
+        arxiv_id: Optional[str] = None,
+        venue: Optional[str] = None
     ):
         self.filename = filename
         self.file_path = file_path
         self.file_type = file_type
         self.upload_timestamp = upload_timestamp or datetime.utcnow()
         self.page_count = page_count
+        
+        # Rich metadata
+        self.authors = authors
+        self.year = year
+        self.keywords = keywords
+        self.abstract = abstract
+        self.doi = doi
+        self.arxiv_id = arxiv_id
+        self.venue = venue
     
     def to_dict(self) -> Dict:
         """Convert metadata to dictionary."""
@@ -34,7 +51,15 @@ class DocumentMetadata:
             "file_path": self.file_path,
             "file_type": self.file_type,
             "upload_timestamp": self.upload_timestamp.isoformat(),
-            "page_count": self.page_count
+            "page_count": self.page_count,
+            # Rich metadata
+            "authors": self.authors,
+            "year": self.year,
+            "keywords": self.keywords,
+            "abstract": self.abstract,
+            "doi": self.doi,
+            "arxiv_id": self.arxiv_id,
+            "venue": self.venue
         }
 
 

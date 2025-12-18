@@ -82,6 +82,9 @@ class ChromaVectorStore:
             metadata["document_id"] = doc_id
             metadata["chunk_id"] = chunk.chunk_id
             metadata["token_count"] = chunk.token_count
+            
+            # Filter out None values (ChromaDB doesn't accept None)
+            metadata = {k: v for k, v in metadata.items() if v is not None}
             metadatas.append(metadata)
         
         # Add to collection
@@ -163,7 +166,7 @@ class ChromaVectorStore:
         # Get all items
         results = self.collection.get()
         
-        # Extract unique documents
+        # Extract unique documents with rich metadata
         documents = {}
         for metadata in results.get("metadatas", []):
             doc_id = metadata.get("document_id")
@@ -172,7 +175,15 @@ class ChromaVectorStore:
                     "document_id": doc_id,
                     "filename": metadata.get("filename"),
                     "file_type": metadata.get("file_type"),
-                    "upload_timestamp": metadata.get("upload_timestamp")
+                    "upload_timestamp": metadata.get("upload_timestamp"),
+                    # Rich metadata
+                    "authors": metadata.get("authors"),
+                    "year": metadata.get("year"),
+                    "keywords": metadata.get("keywords"),
+                    "abstract": metadata.get("abstract"),
+                    "doi": metadata.get("doi"),
+                    "arxiv_id": metadata.get("arxiv_id"),
+                    "venue": metadata.get("venue")
                 }
         
         return list(documents.values())
@@ -232,7 +243,151 @@ class ChromaVectorStore:
             name=self.collection_name,
             metadata={"hnsw:space": "cosine"}
         )
-        logger.warning(f"Reset collection '{self.collection_name}'")
+        logger.info(f"Reset collection '{self.collection_name}'")    
+    def get_document_metadata(self, document_id: str) -> Optional[Dict]:
+        """
+        Get metadata for a specific document.
+        
+        Args:
+            document_id: Document ID
+            
+        Returns:
+            Document metadata dictionary or None if not found
+        """
+        results = self.collection.get(
+            where={"document_id": document_id},
+            limit=1
+        )
+        
+        if results["metadatas"]:
+            metadata = results["metadatas"][0]
+            return {
+                "document_id": document_id,
+                "filename": metadata.get("filename"),
+                "file_type": metadata.get("file_type"),
+                "upload_timestamp": metadata.get("upload_timestamp"),
+                "authors": metadata.get("authors"),
+                "year": metadata.get("year"),
+                "keywords": metadata.get("keywords"),
+                "abstract": metadata.get("abstract"),
+                "doi": metadata.get("doi"),
+                "arxiv_id": metadata.get("arxiv_id"),
+                "venue": metadata.get("venue")
+            }
+        return None
+    
+    def update_document_metadata(self, document_id: str, metadata_update: Dict) -> int:
+        """
+        Update metadata for all chunks of a document.
+        
+        Args:
+            document_id: Document ID
+            metadata_update: Dictionary with metadata fields to update
+            
+        Returns:
+            Number of chunks updated
+        """
+        # Get all chunks for this document
+        results = self.collection.get(
+            where={"document_id": document_id}
+        )
+        
+        if not results["ids"]:
+            return 0
+        
+        # Update metadata for each chunk
+        updated_metadatas = []
+        for metadata in results["metadatas"]:
+            updated_meta = metadata.copy()
+            # Update only provided fields
+            for key, value in metadata_update.items():
+                updated_meta[key] = value
+            
+            # Filter out None values (ChromaDB doesn't accept None)
+            updated_meta = {k: v for k, v in updated_meta.items() if v is not None}
+            updated_metadatas.append(updated_meta)
+        
+        # Update all chunks
+        self.collection.update(
+            ids=results["ids"],
+            metadatas=updated_metadatas
+        )
+        
+        logger.info(f"Updated metadata for {len(results['ids'])} chunks of document {document_id}")
+        return len(results["ids"])
+    
+    def search_documents(
+        self,
+        query: Optional[str] = None,
+        authors: Optional[str] = None,
+        year_min: Optional[int] = None,
+        year_max: Optional[int] = None,
+        keywords: Optional[str] = None
+    ) -> List[Dict]:
+        """
+        Search documents with metadata filters.
+        
+        Args:
+            query: Text search across filename, authors, keywords, abstract
+            authors: Filter by authors (partial match)
+            year_min: Minimum publication year
+            year_max: Maximum publication year
+            keywords: Filter by keywords (partial match)
+            
+        Returns:
+            List of matching documents
+        """
+        # Get all documents
+        all_docs = self.get_all_documents()
+        
+        # Apply filters
+        filtered_docs = []
+        for doc in all_docs:
+            # Text query filter (search in multiple fields)
+            if query:
+                query_lower = query.lower()
+                searchable_text = " ".join([
+                    doc.get("filename", "") or "",
+                    doc.get("authors", "") or "",
+                    doc.get("keywords", "") or "",
+                    doc.get("abstract", "") or "",
+                    doc.get("venue", "") or ""
+                ]).lower()
+                
+                if query_lower not in searchable_text:
+                    continue
+            
+            # Authors filter
+            if authors:
+                doc_authors = doc.get("authors", "") or ""
+                if authors.lower() not in doc_authors.lower():
+                    continue
+            
+            # Year range filter
+            if year_min or year_max:
+                doc_year_str = doc.get("year")
+                if doc_year_str:
+                    try:
+                        doc_year = int(doc_year_str)
+                        if year_min and doc_year < year_min:
+                            continue
+                        if year_max and doc_year > year_max:
+                            continue
+                    except ValueError:
+                        continue
+                else:
+                    continue  # Skip if no year
+            
+            # Keywords filter
+            if keywords:
+                doc_keywords = doc.get("keywords", "") or ""
+                if keywords.lower() not in doc_keywords.lower():
+                    continue
+            
+            filtered_docs.append(doc)
+        
+        logger.info(f"Document search returned {len(filtered_docs)} results")
+        return filtered_docs
 
 
 def get_vector_store() -> ChromaVectorStore:

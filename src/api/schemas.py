@@ -19,6 +19,14 @@ class DocumentInfo(BaseModel):
     filename: str
     file_type: str
     upload_timestamp: str
+    # Rich metadata fields
+    authors: Optional[str] = None
+    year: Optional[str] = None
+    keywords: Optional[str] = None
+    abstract: Optional[str] = None
+    doi: Optional[str] = None
+    arxiv_id: Optional[str] = None
+    venue: Optional[str] = None
 
 
 class DocumentListResponse(BaseModel):
@@ -133,4 +141,32 @@ class ConversationListResponse(BaseModel):
     """Response containing list of conversations."""
     conversations: List[ConversationResponse]
     total: int
+
+
+# Document metadata schemas
+class DocumentMetadataUpdate(BaseModel):
+    """Request to update document metadata."""
+    authors: Optional[str] = Field(None, description="Comma-separated author names")
+    year: Optional[str] = Field(None, description="Publication year")
+    keywords: Optional[str] = Field(None, description="Comma-separated keywords")
+    abstract: Optional[str] = Field(None, description="Document abstract")
+    doi: Optional[str] = Field(None, description="Digital Object Identifier")
+    arxiv_id: Optional[str] = Field(None, description="arXiv identifier")
+    venue: Optional[str] = Field(None, description="Conference or journal name")
+
+
+class DocumentSearchRequest(BaseModel):
+    """Request for smart document search."""
+    query: Optional[str] = Field(None, description="Search query across all text fields")
+    authors: Optional[str] = Field(None, description="Filter by authors (partial match)")
+    year_min: Optional[int] = Field(None, description="Minimum publication year")
+    year_max: Optional[int] = Field(None, description="Maximum publication year")
+    keywords: Optional[str] = Field(None, description="Filter by keywords (partial match)")
+
+
+class DocumentSearchResponse(BaseModel):
+    """Response for document search."""
+    documents: List[DocumentInfo]
+    total: int
+    query: Optional[str] = None
 
