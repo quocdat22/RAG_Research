@@ -15,7 +15,7 @@ from src.api.schemas import (
     DocumentUploadResponse,
 )
 from src.embedding.embedder import get_embedder
-from src.ingestion.chunking import smart_chunk_documents
+from src.ingestion.chunking import smart_chunk_documents, smart_chunk_markdown
 from src.ingestion.loaders import DocumentLoader
 from src.storage.vector_store import get_vector_store
 
@@ -53,15 +53,25 @@ async def upload_document(file: UploadFile = File(...)):
         
         logger.info(f"Saved uploaded file: {file.filename}")
         
-        # Load document
-        pages = DocumentLoader.load(file_path)
+        # Load document (returns pages and is_markdown flag)
+        pages, is_markdown = DocumentLoader.load(file_path)
         
-        # Chunk document
-        chunks = smart_chunk_documents(
-            pages,
-            chunk_size=settings.chunking.size,
-            chunk_overlap=settings.chunking.overlap
-        )
+        # Chunk document based on content type
+        if is_markdown:
+            # Use markdown-aware chunking that separates text and tables
+            chunks = smart_chunk_markdown(
+                pages,
+                chunk_size=settings.chunking.size,
+                chunk_overlap=settings.chunking.overlap
+            )
+            logger.info(f"Used LlamaParse + markdown chunking for {file.filename}")
+        else:
+            # Standard chunking for non-markdown content
+            chunks = smart_chunk_documents(
+                pages,
+                chunk_size=settings.chunking.size,
+                chunk_overlap=settings.chunking.overlap
+            )
         
         # Generate embeddings
         embedder = get_embedder()

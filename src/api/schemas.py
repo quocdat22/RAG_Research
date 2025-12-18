@@ -81,6 +81,7 @@ class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, description="User question")
     top_k: int = Field(3, ge=1, le=20, description="Number of chunks to retrieve")
     search_type: Literal["vector", "bm25", "hybrid"] = Field("hybrid", description="Search method")
+    model_mode: Literal["light", "full"] = Field("light", description="LLM model mode (light: gpt-4.1-mini, full: gpt-5-chat)")
 
 
 class ChatResponse(BaseModel):

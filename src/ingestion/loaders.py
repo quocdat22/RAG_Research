@@ -217,15 +217,17 @@ class DocumentLoader:
     }
     
     @classmethod
-    def load(cls, file_path: Path) -> List[DocumentPage]:
+    def load(cls, file_path: Path, use_llamaparse: bool = True) -> tuple[List[DocumentPage], bool]:
         """
         Load a document based on its file extension.
         
         Args:
             file_path: Path to document file
+            use_llamaparse: Whether to try LlamaParse for PDFs
             
         Returns:
-            List of DocumentPage objects
+            Tuple of (List of DocumentPage objects, is_markdown flag)
+            is_markdown is True when LlamaParse was used
             
         Raises:
             ValueError: If file type is not supported
@@ -241,5 +243,19 @@ class DocumentLoader:
                 f"Supported types: {', '.join(cls.LOADERS.keys())}"
             )
         
+        # Try LlamaParse for PDFs if enabled
+        if suffix == ".pdf" and use_llamaparse:
+            try:
+                from src.ingestion.llama_parser import get_llamaparse_loader
+                
+                llamaparse = get_llamaparse_loader()
+                if llamaparse.is_available:
+                    pages = llamaparse.load(file_path)
+                    return pages, True  # is_markdown = True
+            except Exception as e:
+                logger.warning(f"LlamaParse failed, falling back to pypdf: {e}")
+        
+        # Fallback to standard loader
         loader_class = cls.LOADERS[suffix]
-        return loader_class.load(file_path)
+        return loader_class.load(file_path), False  # is_markdown = False
+

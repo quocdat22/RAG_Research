@@ -84,6 +84,8 @@ def init_session_state():
         st.session_state.search_type = "hybrid"
     if "top_k" not in st.session_state:
         st.session_state.top_k = 5
+    if "model_mode" not in st.session_state:
+        st.session_state.model_mode = "light"
 
 
 def upload_document(file):
@@ -138,7 +140,7 @@ def search_documents(query, top_k, search_type):
         return None
 
 
-def chat(query, top_k, search_type):
+def chat(query, top_k, search_type, model_mode):
     """Ask a question using RAG."""
     try:
         response = requests.post(
@@ -146,7 +148,8 @@ def chat(query, top_k, search_type):
             json={
                 "query": query,
                 "top_k": top_k,
-                "search_type": search_type
+                "search_type": search_type,
+                "model_mode": model_mode
             }
         )
         response.raise_for_status()
@@ -192,6 +195,14 @@ def render_sidebar():
             ["hybrid", "vector", "bm25"],
             index=["hybrid", "vector", "bm25"].index(st.session_state.search_type),
             help="Vector: semantic similarity | BM25: keyword matching | Hybrid: both combined"
+        )
+        
+        st.session_state.model_mode = st.radio(
+            "Model Mode",
+            ["light", "full"],
+            index=["light", "full"].index(st.session_state.model_mode),
+            format_func=lambda x: "Light (gpt-4.1-mini)" if x == "light" else "Full (gpt-5-chat)",
+            help="Light: faster and cheaper | Full: more powerful gpt-5"
         )
 
 
@@ -243,7 +254,8 @@ def render_main():
                 response = chat(
                     query=prompt,
                     top_k=st.session_state.top_k,
-                    search_type=st.session_state.search_type
+                    search_type=st.session_state.search_type,
+                    model_mode=st.session_state.model_mode
                 )
                 
                 if response:

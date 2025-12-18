@@ -204,12 +204,12 @@ class OpenAIGenerator:
         return citations
 
 
-def get_generator() -> OpenAIGenerator:
+def get_generator(model_name: Optional[str] = None) -> OpenAIGenerator:
     """Get configured generator instance."""
     return OpenAIGenerator(
         api_key=settings.api_key,
         base_url=settings.api_base_url,
-        model=settings.llm.model,
+        model=model_name or settings.llm.model,
         temperature=settings.llm.temperature,
         max_tokens=settings.llm.max_tokens
     )

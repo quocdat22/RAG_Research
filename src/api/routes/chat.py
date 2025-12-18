@@ -70,7 +70,9 @@ async def chat(request: ChatRequest):
     try:
         # Initialize components
         vector_retriever, bm25_retriever, hybrid_retriever, reranker = _initialize_retrievers()
-        generator = get_generator()
+        # Determine model
+        model_name = "openai/gpt-4.1-mini" if request.model_mode == "light" else "openai/gpt-5-chat"
+        generator = get_generator(model_name=model_name)
         
         # Determine retrieval top_k
         from config.settings import settings
@@ -149,7 +151,9 @@ async def chat_stream(request: ChatRequest):
     try:
         # Initialize components
         vector_retriever, bm25_retriever, hybrid_retriever, reranker = _initialize_retrievers()
-        generator = get_generator()
+        # Determine model
+        model_name = "openai/gpt-4.1-mini" if request.model_mode == "light" else "openai/gpt-5-chat"
+        generator = get_generator(model_name=model_name)
         
         # Determine retrieval top_k
         from config.settings import settings

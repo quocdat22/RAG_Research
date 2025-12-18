@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,7 +18,7 @@ class EmbeddingSettings(BaseSettings):
 class LLMSettings(BaseSettings):
     """LLM configuration."""
     
-    model: str = Field(default="openai/gpt-5-chat", description="Chat model")
+    model: str = Field(default="openai/gpt-4.1-mini", description="Chat model")
     temperature: float = Field(default=0.1, ge=0.0, le=2.0, description="Sampling temperature")
     max_tokens: int = Field(default=2048, ge=1, le=16000, description="Max response tokens")
     
@@ -87,6 +87,23 @@ class RerankSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="RERANK_")
 
 
+class LlamaParseSettings(BaseSettings):
+    """LlamaParse configuration for complex PDF parsing."""
+    
+    enabled: bool = Field(default=True, description="Whether to enable LlamaParse for PDF processing", validation_alias="LLAMAPARSE_ENABLED")
+    result_type: str = Field(default="markdown", validation_alias="LLAMAPARSE_RESULT_TYPE")
+    output_tables_as_html: bool = Field(default=False, validation_alias="LLAMAPARSE_OUTPUT_TABLES_AS_HTML")
+    
+    model_config = SettingsConfigDict(populate_by_name=True)
+    
+    @property
+    def is_available(self) -> bool:
+        """Check if LlamaParse is enabled and has API key."""
+        # Use the key from the main settings if available
+        from config.settings import settings
+        return self.enabled and bool(settings.llama_cloud_api_key)
+
+
 class Settings(BaseSettings):
     """Main application settings."""
     
@@ -94,6 +111,7 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
     github_token: Optional[str] = Field(default=None, description="GitHub token for GitHub Models API")
     cohere_api_key: Optional[str] = Field(default=None, description="Cohere API key for reranking")
+    llama_cloud_api_key: Optional[str] = Field(default=None, description="LlamaCloud API key", validation_alias="LLAMA_CLOUD_API_KEY")
     
     # API Endpoints
     api_base_url: Optional[str] = Field(
@@ -116,6 +134,7 @@ class Settings(BaseSettings):
     chunking: ChunkingSettings = Field(default_factory=ChunkingSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     rerank: RerankSettings = Field(default_factory=RerankSettings)
+    llamaparse: LlamaParseSettings = Field(default_factory=LlamaParseSettings)
     
     # Storage paths
     documents_dir: Path = Field(default=Path("./data/documents"), description="Documents storage directory")
