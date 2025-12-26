@@ -198,6 +198,42 @@ async def list_documents():
         List of documents with metadata
     """
     try:
+        # Check if using Supabase
+        use_supabase = settings.environment == "production" or settings.use_supabase_storage
+        
+        if use_supabase and settings.supabase_url and settings.supabase_key:
+            # Get documents from Supabase
+            try:
+                from src.storage.supabase_client import get_supabase_storage
+                supabase_storage = get_supabase_storage()
+                
+                supabase_docs = supabase_storage.list_documents()
+                
+                # Convert Supabase format to DocumentInfo format
+                doc_infos = []
+                for doc in supabase_docs:
+                    doc_info = DocumentInfo(
+                        document_id=doc['id'],
+                        filename=doc['filename'],
+                        file_type=doc.get('file_type'),
+                        upload_timestamp=doc.get('upload_date'),
+                        authors=doc.get('metadata', {}).get('authors'),
+                        year=doc.get('metadata', {}).get('year'),
+                        keywords=doc.get('metadata', {}).get('keywords'),
+                        abstract=doc.get('metadata', {}).get('abstract'),
+                        doi=doc.get('metadata', {}).get('doi'),
+                        arxiv_id=doc.get('metadata', {}).get('arxiv_id'),
+                        venue=doc.get('metadata', {}).get('venue')
+                    )
+                    doc_infos.append(doc_info)
+                
+                logger.info(f"✅ Retrieved {len(doc_infos)} documents from Supabase")
+                return DocumentListResponse(documents=doc_infos, total=len(doc_infos))
+            except Exception as e:
+                logger.error(f"❌ Failed to get documents from Supabase: {e}")
+                # Fall back to ChromaDB
+        
+        # Get documents from ChromaDB (local)
         vector_store = get_vector_store()
         documents = vector_store.get_all_documents()
         
@@ -226,6 +262,38 @@ async def delete_document(document_id: str):
         Deletion confirmation
     """
     try:
+        # Check if using Supabase
+        use_supabase = settings.environment == "production" or settings.use_supabase_storage
+        chunks_deleted = 0
+        
+        if use_supabase and settings.supabase_url and settings.supabase_key:
+            # Delete from Supabase
+            try:
+                from src.storage.supabase_client import get_supabase_storage
+                supabase_storage = get_supabase_storage()
+                
+                # Get chunk count before delete
+                doc = supabase_storage.get_document(document_id)
+                if not doc:
+                    raise HTTPException(status_code=404, detail="Document not found")
+                
+                chunks_deleted = doc.get('chunk_count', 0)
+                
+                # Delete from Supabase (includes storage file and chunks)
+                supabase_storage.delete_document(document_id)
+                logger.info(f"✅ Deleted document {document_id} from Supabase")
+                
+                return DocumentDeleteResponse(
+                    document_id=document_id,
+                    chunks_deleted=chunks_deleted
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"❌ Failed to delete from Supabase: {e}")
+                # Fall back to ChromaDB
+        
+        # Delete from ChromaDB (local)
         vector_store = get_vector_store()
         chunks_deleted = vector_store.delete_document(document_id)
         
@@ -258,6 +326,42 @@ async def get_document_chunks(document_id: str):
         List of chunks with text and metadata
     """
     try:
+        # Check if using Supabase
+        use_supabase = settings.environment == "production" or settings.use_supabase_storage
+        
+        if use_supabase and settings.supabase_url and settings.supabase_key:
+            # Get chunks from Supabase
+            try:
+                from src.storage.supabase_client import get_supabase_storage
+                supabase_storage = get_supabase_storage()
+                
+                supabase_chunks = supabase_storage.get_document_chunks(document_id)
+                
+                if not supabase_chunks:
+                    raise HTTPException(status_code=404, detail="Document not found or has no chunks")
+                
+                # Convert to expected format
+                chunks = []
+                for chunk in supabase_chunks:
+                    chunks.append({
+                        "chunk_id": chunk['id'],
+                        "text": chunk['content'],
+                        "metadata": chunk.get('metadata', {})
+                    })
+                
+                logger.info(f"✅ Retrieved {len(chunks)} chunks from Supabase for document {document_id}")
+                return DocumentChunksResponse(
+                    document_id=document_id,
+                    chunks=chunks,
+                    total=len(chunks)
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"❌ Failed to get chunks from Supabase: {e}")
+                # Fall back to ChromaDB
+        
+        # Get chunks from ChromaDB (local)
         vector_store = get_vector_store()
         chunks = vector_store.get_document_chunks(document_id)
         
@@ -293,6 +397,40 @@ async def get_document_metadata(document_id: str):
         Document metadata
     """
     try:
+        # Check if using Supabase
+        use_supabase = settings.environment == "production" or settings.use_supabase_storage
+        
+        if use_supabase and settings.supabase_url and settings.supabase_key:
+            # Get from Supabase
+            try:
+                from src.storage.supabase_client import get_supabase_storage
+                supabase_storage = get_supabase_storage()
+                
+                doc = supabase_storage.get_document(document_id)
+                if not doc:
+                    raise HTTPException(status_code=404, detail="Document not found")
+                
+                # Convert Supabase format to DocumentInfo
+                return DocumentInfo(
+                    document_id=doc['id'],
+                    filename=doc['filename'],
+                    file_type=doc.get('file_type'),
+                    upload_timestamp=doc.get('upload_date'),
+                    authors=doc.get('metadata', {}).get('authors'),
+                    year=doc.get('metadata', {}).get('year'),
+                    keywords=doc.get('metadata', {}).get('keywords'),
+                    abstract=doc.get('metadata', {}).get('abstract'),
+                    doi=doc.get('metadata', {}).get('doi'),
+                    arxiv_id=doc.get('metadata', {}).get('arxiv_id'),
+                    venue=doc.get('metadata', {}).get('venue')
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"❌ Failed to get metadata from Supabase: {e}")
+                # Fall back to ChromaDB
+        
+        # Get from ChromaDB (local)
         vector_store = get_vector_store()
         metadata = vector_store.get_document_metadata(document_id)
         
@@ -326,11 +464,50 @@ async def update_document_metadata(
     try:
         from src.api.schemas import DocumentMetadataUpdate
         
-        vector_store = get_vector_store()
-        
         # Convert pydantic model to dict, excluding None values
         update_dict = metadata_update.model_dump(exclude_none=True)
         
+        # Check if using Supabase
+        use_supabase = settings.environment == "production" or settings.use_supabase_storage
+        chunks_updated = 0
+        
+        if use_supabase and settings.supabase_url and settings.supabase_key:
+            # Update in Supabase
+            try:
+                from src.storage.supabase_client import get_supabase_storage
+                supabase_storage = get_supabase_storage()
+                
+                # Get document first to check if exists
+                doc = supabase_storage.get_document(document_id)
+                if not doc:
+                    raise HTTPException(status_code=404, detail="Document not found")
+                
+                # Update document metadata in Supabase
+                # Merge with existing metadata
+                existing_metadata = doc.get('metadata', {})
+                existing_metadata.update(update_dict)
+                
+                supabase_storage.update_document(document_id, {
+                    'metadata': existing_metadata
+                })
+                
+                chunks_updated = doc.get('chunk_count', 0)
+                logger.info(f"✅ Updated metadata for document {document_id} in Supabase")
+                
+                return {
+                    "status": "success",
+                    "document_id": document_id,
+                    "chunks_updated": chunks_updated,
+                    "updated_fields": list(update_dict.keys())
+                }
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"❌ Failed to update metadata in Supabase: {e}")
+                # Fall back to ChromaDB
+        
+        # Update in ChromaDB (local)
+        vector_store = get_vector_store()
         chunks_updated = vector_store.update_document_metadata(document_id, update_dict)
         
         if chunks_updated == 0:

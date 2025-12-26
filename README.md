@@ -1,4 +1,4 @@
-# 🔬 RAG Native - Research Assistant System
+# 🔬 RAG - Research Assistant System
 
 <div align="center">
 

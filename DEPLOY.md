@@ -108,12 +108,12 @@ Truy cập: http://localhost:8000/health
 - [x] (Optional) Setup Persistent Disk - supabase
 
 ### Frontend:
-- [ ] Sửa BACKEND_API_URL trong 3 files UI
-- [ ] Tạo ui/requirements.txt
-- [ ] Set BACKEND_API_URL secret trên Streamlit Cloud
+- [x] Sửa BACKEND_API_URL trong 3 files UI
+- [x] Tạo ui/requirements.txt
+- [x] Set BACKEND_API_URL secret trên Streamlit Cloud
 
 ### Post-Deploy:
-- [ ] Test health check: `https://your-api.onrender.com/health`
-- [ ] Cập nhật ALLOWED_ORIGINS với URL frontend thực tế
-- [ ] Upload documents qua UI
-- [ ] Test chat functionality
+- [x] Test health check: `https://your-api.onrender.com/health`
+- [x] Cập nhật ALLOWED_ORIGINS với URL frontend thực tế
+- [x] Upload documents qua UI
+- [x] Test chat functionality
