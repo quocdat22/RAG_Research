@@ -3,6 +3,11 @@ import sys
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
+
+# Load environment variables from .env file FIRST
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 # Ensure standard streams use UTF-8 on Windows
 if sys.platform == "win32":
@@ -56,7 +61,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -98,10 +103,14 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+    
+    # Only use reload in development
+    is_dev = os.getenv("ENVIRONMENT", "development") == "development"
     
     uvicorn.run(
         "src.api.main:app",
         host=settings.api_host,
         port=settings.api_port,
-        reload=True
+        reload=is_dev
     )

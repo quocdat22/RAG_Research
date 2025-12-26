@@ -1,6 +1,7 @@
 """Document management routes."""
 import logging
 import shutil
+import os
 from pathlib import Path
 from typing import List
 
@@ -47,12 +48,54 @@ async def upload_document(file: UploadFile = File(...)):
                 detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
             )
         
-        # Save uploaded file
-        file_path = settings.documents_dir / file.filename
-        with open(file_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
+        # Read file content
+        file_content = await file.read()
         
-        logger.info(f"Saved uploaded file: {file.filename}")
+        # Check if using Supabase
+        use_supabase = settings.environment == "production" or settings.use_supabase_storage
+        supabase_doc_id = None
+        file_path = None
+        temp_file = False
+        
+        if use_supabase and settings.supabase_url and settings.supabase_key:
+            # Upload to Supabase Storage
+            try:
+                from src.storage.supabase_client import get_supabase_storage
+                from datetime import datetime
+                
+                supabase_storage = get_supabase_storage()
+                
+                # Add timestamp to filename to avoid duplicates
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                name_parts = Path(file.filename).stem, Path(file.filename).suffix
+                unique_filename = f"{name_parts[0]}_{timestamp}{name_parts[1]}"
+                
+                doc_record = supabase_storage.upload_document(
+                    file_path=unique_filename,
+                    file_content=file_content,
+                    metadata={
+                        "file_type": file_extension,
+                        "original_filename": file.filename
+                    }
+                )
+                supabase_doc_id = doc_record['id']
+                logger.info(f"✅ Uploaded to Supabase: {unique_filename} (ID: {supabase_doc_id})")
+                
+                # Create temp file for processing only
+                file_path = settings.documents_dir / f"temp_{supabase_doc_id}_{file.filename}"
+                with open(file_path, "wb") as f:
+                    f.write(file_content)
+                temp_file = True
+                
+            except Exception as e:
+                logger.error(f"❌ Supabase upload failed: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to upload to Supabase: {str(e)}")
+        else:
+            # Save locally only if not using Supabase
+            file_path = settings.documents_dir / file.filename
+            with open(file_path, "wb") as f:
+                f.write(file_content)
+            logger.info(f"💾 Saved locally: {file.filename}")
         
         # Load document (returns pages and is_markdown flag)
         pages, is_markdown = DocumentLoader.load(file_path)
@@ -106,8 +149,32 @@ async def upload_document(file: UploadFile = File(...)):
         vector_store = get_vector_store()
         document_id = vector_store.add_documents(chunks, embeddings)
         
+        # Save chunks to Supabase if using it
+        if use_supabase and supabase_doc_id:
+            try:
+                chunk_data = [
+                    {
+                        "content": chunk.text,
+                        "embedding_id": document_id,  # ChromaDB document ID
+                        "metadata": chunk.metadata.dict() if hasattr(chunk.metadata, 'dict') else {}
+                    }
+                    for chunk in chunks
+                ]
+                supabase_storage.save_chunks(supabase_doc_id, chunk_data)
+                logger.info(f"✅ Saved {len(chunks)} chunks to Supabase")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to save chunks to Supabase: {e}")
+        
+        # Cleanup temp file
+        if temp_file and file_path and file_path.exists():
+            try:
+                file_path.unlink()
+                logger.info(f"🗑️ Deleted temp file: {file_path.name}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temp file: {e}")
+        
         logger.info(
-            f"Processed document {file.filename}: "
+            f"✅ Processed document {file.filename}: "
             f"{len(chunks)} chunks, document_id={document_id}"
         )
         

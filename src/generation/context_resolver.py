@@ -36,7 +36,7 @@ Rewritten query:"""
         self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        model: str = "openai/gpt-4.1-mini"
+        model: Optional[str] = None
     ):
         """
         Initialize context resolver.
@@ -44,14 +44,14 @@ Rewritten query:"""
         Args:
             api_key: API key for LLM
             base_url: Base URL for API
-            model: Model to use for query rewriting
+            model: Model to use for query rewriting (defaults to settings.llm.model)
         """
         self.client = OpenAI(
             api_key=api_key or settings.api_key,
             base_url=base_url or settings.api_base_url
         )
-        self.model = model
-        logger.info(f"ContextResolver initialized with model={model}")
+        self.model = model or settings.llm.model
+        logger.info(f"ContextResolver initialized with model={self.model}")
     
     def _format_history(self, messages: List[Dict]) -> str:
         """

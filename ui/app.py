@@ -1,10 +1,11 @@
 """Streamlit frontend for RAG Native."""
+import os
 import requests
 import streamlit as st
 import re
 
 # API Configuration
-API_BASE_URL = "http://localhost:8000"
+BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
 
 # Page config
 st.set_page_config(
@@ -117,7 +118,7 @@ def init_session_state():
 def get_conversations(limit: int = 50):
     """Get list of all conversations."""
     try:
-        response = requests.get(f"{API_BASE_URL}/conversations?limit={limit}")
+        response = requests.get(f"{BACKEND_API_URL}/conversations?limit={limit}")
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -129,7 +130,7 @@ def create_conversation(title: str = None):
     """Create a new conversation."""
     try:
         data = {"title": title} if title else {}
-        response = requests.post(f"{API_BASE_URL}/conversations", json=data)
+        response = requests.post(f"{BACKEND_API_URL}/conversations", json=data)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -140,7 +141,7 @@ def create_conversation(title: str = None):
 def get_conversation(conversation_id: str):
     """Get a conversation with its messages."""
     try:
-        response = requests.get(f"{API_BASE_URL}/conversations/{conversation_id}")
+        response = requests.get(f"{BACKEND_API_URL}/conversations/{conversation_id}")
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -151,7 +152,7 @@ def get_conversation(conversation_id: str):
 def delete_conversation(conversation_id: str):
     """Delete a conversation."""
     try:
-        response = requests.delete(f"{API_BASE_URL}/conversations/{conversation_id}")
+        response = requests.delete(f"{BACKEND_API_URL}/conversations/{conversation_id}")
         response.raise_for_status()
         return True
     except Exception as e:
@@ -166,7 +167,7 @@ def delete_conversation(conversation_id: str):
 def get_documents():
     """Get list of all documents."""
     try:
-        response = requests.get(f"{API_BASE_URL}/documents")
+        response = requests.get(f"{BACKEND_API_URL}/documents")
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -186,7 +187,7 @@ def chat(query, top_k, search_type, model_mode, conversation_id=None):
         if conversation_id:
             data["conversation_id"] = conversation_id
             
-        response = requests.post(f"{API_BASE_URL}/chat", json=data)
+        response = requests.post(f"{BACKEND_API_URL}/chat", json=data)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -293,11 +294,12 @@ def render_sidebar():
         )
         
         st.session_state.model_mode = st.radio(
-            "Model Mode",
+            "Model",
             ["light", "full"],
             index=["light", "full"].index(st.session_state.model_mode),
-            format_func=lambda x: "Light (gpt-4.1-mini)" if x == "light" else "Full (gpt-5-chat)",
-            help="Light: faster and cheaper | Full: more powerful gpt-5"
+            format_func=lambda x: "Light" if x == "light" else "Full",
+            horizontal=True,
+            help="Light: faster responses | Full: more comprehensive analysis"
         )
 
 

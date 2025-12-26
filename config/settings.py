@@ -18,7 +18,9 @@ class EmbeddingSettings(BaseSettings):
 class LLMSettings(BaseSettings):
     """LLM configuration."""
     
-    model: str = Field(default="openai/gpt-4.1-mini", description="Chat model")
+    model: str = Field(default="openai/gpt-4o-mini", description="Default chat model")
+    model_light: str = Field(default="openai/gpt-4.1-mini", description="Light model for faster responses")
+    model_heavy: str = Field(default="openai/gpt-4o", description="Heavy model for complex tasks")
     temperature: float = Field(default=0.1, ge=0.0, le=2.0, description="Sampling temperature")
     max_tokens: int = Field(default=2048, ge=1, le=16000, description="Max response tokens")
     
@@ -113,6 +115,11 @@ class Settings(BaseSettings):
     cohere_api_key: Optional[str] = Field(default=None, description="Cohere API key for reranking")
     llama_cloud_api_key: Optional[str] = Field(default=None, description="LlamaCloud API key", validation_alias="LLAMA_CLOUD_API_KEY")
     
+    # Supabase Configuration
+    supabase_url: Optional[str] = Field(default=None, description="Supabase project URL")
+    supabase_key: Optional[str] = Field(default=None, description="Supabase API key (anon/public)")
+    use_supabase_storage: bool = Field(default=False, description="Use Supabase Storage instead of local storage")
+    
     # API Endpoints
     api_base_url: Optional[str] = Field(
         default="https://models.github.ai/inference", 
@@ -144,6 +151,15 @@ class Settings(BaseSettings):
     # API settings
     api_host: str = Field(default="0.0.0.0", description="API host")
     api_port: int = Field(default=8000, ge=1024, le=65535, description="API port")
+    allowed_origins: str = Field(default="*", description="Allowed CORS origins (comma-separated)")
+    environment: str = Field(default="development", description="Environment: development or production")
+    
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse CORS origins from comma-separated string."""
+        if self.allowed_origins == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
     
     model_config = SettingsConfigDict(
         env_file=".env",

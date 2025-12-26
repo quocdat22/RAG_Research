@@ -29,6 +29,8 @@ dependencies = [
     "cohere>=5.0.0",
     "pymupdf>=1.26.7",
     "gunicorn>=23.0.0",
+    # Cloud Storage (Optional)
+    "supabase>=2.3.0",
 ]
 
 [project.optional-dependencies]

@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import requests
 import re
@@ -7,7 +8,7 @@ from PIL import Image
 from datetime import datetime
 
 # API Configuration
-API_BASE_URL = "http://localhost:8000"
+BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
 
 # Page config
 st.set_page_config(
@@ -97,7 +98,7 @@ def format_latex(text: str) -> str:
 
 def get_documents():
     try:
-        response = requests.get(f"{API_BASE_URL}/documents")
+        response = requests.get(f"{BACKEND_API_URL}/documents")
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -106,7 +107,7 @@ def get_documents():
 
 def get_document_chunks(doc_id):
     try:
-        response = requests.get(f"{API_BASE_URL}/documents/{doc_id}/chunks")
+        response = requests.get(f"{BACKEND_API_URL}/documents/{doc_id}/chunks")
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -116,7 +117,7 @@ def get_document_chunks(doc_id):
 def upload_document(file):
     files = {"file": (file.name, file.getvalue(), file.type)}
     try:
-        response = requests.post(f"{API_BASE_URL}/documents/upload", files=files)
+        response = requests.post(f"{BACKEND_API_URL}/documents/upload", files=files)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -126,7 +127,7 @@ def upload_document(file):
 def update_document_metadata(doc_id, metadata):
     try:
         response = requests.put(
-            f"{API_BASE_URL}/documents/{doc_id}/metadata",
+            f"{BACKEND_API_URL}/documents/{doc_id}/metadata",
             json=metadata
         )
         response.raise_for_status()
@@ -137,7 +138,7 @@ def update_document_metadata(doc_id, metadata):
 
 def delete_document(doc_id):
     try:
-        response = requests.delete(f"{API_BASE_URL}/documents/{doc_id}")
+        response = requests.delete(f"{BACKEND_API_URL}/documents/{doc_id}")
         response.raise_for_status()
         return response.json()
     except Exception as e:

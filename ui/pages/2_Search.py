@@ -1,10 +1,11 @@
+import os
 import streamlit as st
 import requests
 import re
 from datetime import datetime
 
 # API Configuration
-API_BASE_URL = "http://localhost:8000"
+BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
 
 # Page config
 st.set_page_config(
@@ -71,7 +72,7 @@ def format_latex(text: str) -> str:
 def semantic_search(query, top_k=5, search_type="hybrid"):
     try:
         response = requests.post(
-            f"{API_BASE_URL}/search",
+            f"{BACKEND_API_URL}/search",
             json={
                 "query": query,
                 "top_k": top_k,
@@ -93,7 +94,7 @@ def document_search(query=None, authors=None, year_min=None, year_max=None, keyw
         if year_max: payload["year_max"] = year_max
         if keywords: payload["keywords"] = keywords
         
-        response = requests.post(f"{API_BASE_URL}/documents/search", json=payload)
+        response = requests.post(f"{BACKEND_API_URL}/documents/search", json=payload)
         response.raise_for_status()
         return response.json()
     except Exception as e:

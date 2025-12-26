@@ -17,7 +17,7 @@ class OpenAIEmbedder:
         self,
         api_key: str,
         base_url: Optional[str] = None,
-        model: str = "openai/text-embedding-3-small",
+        model: Optional[str] = None,
         batch_size: int = 100
     ):
         """
@@ -25,14 +25,15 @@ class OpenAIEmbedder:
         
         Args:
             api_key: OpenAI API key
-            model: Embedding model name
+            base_url: Base URL for API (optional)
+            model: Embedding model name (defaults to settings.embedding.model)
             batch_size: Number of texts to embed in one API call
         """
         self.client = OpenAI(api_key=api_key, base_url=base_url)
-        self.model = model
+        self.model = model or settings.embedding.model
         self.batch_size = batch_size
         
-        logger.info(f"Initialized OpenAIEmbedder with model={model}")
+        logger.info(f"Initialized OpenAIEmbedder with model={self.model}")
     
     @retry(
         wait=wait_exponential(multiplier=1, min=2, max=10),

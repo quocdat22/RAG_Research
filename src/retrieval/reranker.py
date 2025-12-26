@@ -18,20 +18,20 @@ class CohereReranker:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "rerank-v4.0-fast",
-        top_n: int = 3
+        model: Optional[str] = None,
+        top_n: Optional[int] = None
     ):
         """
         Initialize Cohere reranker.
         
         Args:
-            api_key: Cohere API key
-            model: Rerank model name
-            top_n: Number of chunks to keep after reranking
+            api_key: Cohere API key (optional, defaults to settings.cohere_api_key)
+            model: Rerank model name (defaults to settings.rerank.model)
+            top_n: Number of chunks to keep after reranking (defaults to settings.rerank.top_n)
         """
         self.api_key = api_key or settings.cohere_api_key
-        self.model = model
-        self.top_n = top_n
+        self.model = model or settings.rerank.model
+        self.top_n = top_n if top_n is not None else settings.rerank.top_n
         self.client = None
         
         if cohere is None:

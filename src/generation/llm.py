@@ -98,25 +98,26 @@ class OpenAIGenerator:
         self,
         api_key: str,
         base_url: Optional[str] = None,
-        model: str = "openai/gpt-4o-mini",
-        temperature: float = 0.1,
-        max_tokens: int = 2048
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None
     ):
         """
         Initialize OpenAI generator.
         
         Args:
             api_key: OpenAI API key
-            model: Model name
-            temperature: Sampling temperature
-            max_tokens: Maximum response tokens
+            base_url: Base URL for API (optional)
+            model: Model name (defaults to settings.llm.model)
+            temperature: Sampling temperature (defaults to settings.llm.temperature)
+            max_tokens: Maximum response tokens (defaults to settings.llm.max_tokens)
         """
         self.client = OpenAI(api_key=api_key, base_url=base_url)
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.model = model or settings.llm.model
+        self.temperature = temperature if temperature is not None else settings.llm.temperature
+        self.max_tokens = max_tokens or settings.llm.max_tokens
         
-        logger.info(f"Initialized OpenAIGenerator with model={model}")
+        logger.info(f"Initialized OpenAIGenerator with model={self.model}")
     
     def generate(
         self,

@@ -1,0 +1,24 @@
+Test Document for RAG System
+=============================
+
+This is a test document to verify Supabase integration.
+
+## Overview
+
+This document contains multiple sections to test:
+- Document upload to Supabase
+- Automatic chunking
+- Metadata extraction
+- Vector embeddings
+
+## Technical Details
+
+The RAG system uses:
+1. FastAPI for the backend API
+2. Supabase for persistent storage
+3. ChromaDB for vector storage
+4. OpenAI embeddings
+
+## Conclusion
+
+If you see this document in Supabase, the integration is working correctly!

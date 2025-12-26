@@ -92,7 +92,7 @@ JSON output:"""
         try:
             # Use lightweight model for metadata extraction
             response = self.client.chat.completions.create(
-                model="openai/gpt-4o-mini",
+                model=settings.llm.model_light,
                 messages=[
                     {"role": "system", "content": "You are a metadata extraction assistant. Always return valid JSON."},
                     {"role": "user", "content": prompt}
