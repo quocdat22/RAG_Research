@@ -38,7 +38,6 @@ def _initialize_retrievers():
         bm25_retriever.index_documents(documents)
     
     # Hybrid retriever
-    from config.settings import settings
     hybrid_retriever = HybridRetriever(
         vector_retriever,
         bm25_retriever,
@@ -94,7 +93,6 @@ async def chat(request: ChatRequest):
             query_to_use = resolver.resolve(request.query, conversation_history)
         
         # Determine retrieval top_k
-        from config.settings import settings
         retrieval_k = request.top_k
         if reranker and settings.rerank.enabled:
             # If reranking, retrieve more initially
